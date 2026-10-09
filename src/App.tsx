@@ -199,7 +199,7 @@ function App() {
           <span>slot<span className="brand-light">sleuth</span></span>
         </a>
         <div className="topbar-meta"><span className="topbar-dot" />SOLANA RPC TOOLKIT <span className="topbar-divider">/</span> READ ONLY</div>
-        <a className="github-link" href="https://github.com/Tolu-max/SuperteamOpportunaity" target="_blank" rel="noreferrer">SOURCE <span aria-hidden="true">↗</span></a>
+        <a className="github-link" href="https://github.com/Tolu-max/SuperteamOpportunaity/tree/feat/solana-live" target="_blank" rel="noreferrer">SOURCE <span aria-hidden="true">↗</span></a>
       </header>
 
       <section className="hero" id="top">
@@ -260,7 +260,7 @@ function App() {
         </section>
       )}
 
-      <footer className="page-footer"><div><span className="footer-brand">slot<span>sleuth</span></span><span className="footer-divider">·</span><span>Built for Solana developers</span></div><div><span>READ ONLY BY DESIGN</span><span className="footer-divider">·</span><a href="https://github.com/Tolu-max/SuperteamOpportunaity" target="_blank" rel="noreferrer">OPEN SOURCE ↗</a></div></footer>
+      <footer className="page-footer"><div><span className="footer-brand">slot<span>sleuth</span></span><span className="footer-divider">·</span><span>Built for Solana developers</span></div><div><span>READ ONLY BY DESIGN</span><span className="footer-divider">·</span><a href="https://github.com/Tolu-max/SuperteamOpportunaity/tree/feat/solana-live" target="_blank" rel="noreferrer">OPEN SOURCE ↗</a></div></footer>
     </main>
   );
 }
