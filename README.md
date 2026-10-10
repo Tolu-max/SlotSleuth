@@ -1,50 +1,37 @@
 # SlotSleuth
 
-SlotSleuth helps Solana application developers check whether two RPC providers return the same finalized state for a public account. It compares cluster genesis fingerprints, finalized and account-context slots, account existence, owner, balance, executable flag, data length, and a SHA-256 of account data.
+SlotSleuth helps Solana application developers compare finalized public-account state from two RPC endpoints. It checks genesis fingerprints, finalized and account-context slots, account existence, owner, lamports, executable flag, data length, and SHA-256 of account data.
 
-## Run locally
+## Run and verify
 
 From the repository root:
 
 ```sh
 npm ci
 npm run dev
+npm run typecheck --workspace @worlds-fair/solana-live
+npm run lint --workspace @worlds-fair/solana-live
+npm run test --workspace @worlds-fair/solana-live
+npm run build --workspace @worlds-fair/solana-live
 ```
 
-Open the Vite URL, paste a public account address, enter two distinct RPC URLs, and select **Compare account state**. Endpoint A starts with Solana's public mainnet endpoint. Endpoint B must be supplied by the developer. The page does not fetch data until the form is submitted.
+The Vite server prints a local URL (5173 by default). No environment variables are required; see [.env.example](.env.example). The static build is `projects/solana-live/dist`.
 
-## How it works
+## Behavior and boundaries
 
-- Uses the current modular `@solana/kit` SDK to validate public addresses and read `getGenesisHash`, `getSlot`, and `getAccountInfo` at `finalized` commitment. Lamport amounts stay as `bigint` for exact comparison.
-- Queries both endpoints concurrently and displays the account context slot beside each response.
-- Computes a local SHA-256 over account data up to 10 MiB. It never uploads account bytes to a SlotSleuth service.
-- Labels familiar mainnet, devnet, and testnet genesis hashes. It shows an unknown fingerprint for other clusters rather than guessing.
-- Keeps entered RPC URLs only in tab memory. The selected RPC provider receives the request, address, and the URL itself; SlotSleuth has no backend, analytics, wallet connection, or transaction methods.
-- Allows HTTP only for loopback validator endpoints; remote endpoints must use HTTPS. Never paste a wallet secret. An RPC URL may itself contain a provider API key and will be sent to that provider.
+- Uses `@solana/kit` for validated public addresses and JSON-RPC reads at finalized commitment. Lamports remain `bigint` for exact comparisons.
+- Endpoint A defaults to `https://solana-rpc.publicnode.com`; supply a second endpoint. The browser sends requests directly to each provider. Provider availability, CORS, and rate limits differ.
+- Retries an individual transient 408/425/429/5xx or network failure once after a short delay. It does not retry invalid requests or rate-limit indefinitely.
+- Hashes account data locally up to 10 MiB; larger data is marked unverified. Endpoint URLs are only in tab memory and are intentionally omitted from downloaded diagnostic JSON.
+- Genesis hash, slot height, and account state are separate RPC reads, and the two endpoints are not queried at one atomic shared slot. A mismatch is a diagnostic signal, not proof that a provider is faulty.
+- There is no backend, analytics, wallet connection, or transaction method. Never paste a wallet secret. A provider URL can contain a credential and will be sent to that provider.
 
-## Comparison limits
+## Demo and deployment
 
-Two reads can straddle a finalized account update. A reported difference is a signal to investigate, not proof that a provider is wrong. Compare account context slots and repeat the read before diagnosing stale state. SlotSleuth flags lamport values outside JavaScript's exact integer range as unverified and skips hashing data over 10 MiB. Rate limits and browser CORS rules depend on the RPC provider.
+Use a public account address and two distinct HTTPS RPC URLs for the same cluster. Show the genesis fingerprint, context slots, account fields, hash comparison, then export the JSON diagnostic. State that state may advance between reads and that nothing is signed or broadcast.
 
-## Validation
+Build with `npm run build --workspace @worlds-fair/solana-live` from the repository root and publish `projects/solana-live/dist` using a static host configured for this monorepo. No hosting provider, public URL, or deployment credential is configured or verified. The repository is private; obtain the user's approval before changing repository visibility or publishing its code.
 
-```sh
-npm run typecheck
-npm run lint
-npm run test
-npm run build
-```
+## Live smoke evidence
 
-The test suite includes a local JSON-RPC server that exercises the Solana SDK request and account-decoding path. A live mainnet smoke check still needs outbound access to `api.mainnet-beta.solana.com` and is not counted as passed until that request succeeds.
-
-## Demo plan
-
-Use two RPC providers configured for the same cluster and the same public account address. Show both genesis fingerprints, finalized slots, account context slots, owner, and data hash. Repeat after an account update has finalized if one is available. State clearly that no transaction is signed or sent and that provider credentials in endpoint URLs remain with the provider receiving each request.
-
-## Environment variables
-
-None are required. See [.env.example](.env.example). Provider URLs are supplied in the browser and are never written to local storage.
-
-## Deployment
-
-Build with `npm run build` from the repository root. The generated static site is in `projects/solana-live/dist`. Deployment has not been configured or verified; select a host only after authorized deployment credentials and hackathon requirements are known.
+Chromium sent a real mainnet request to PublicNode for the System Program account and rendered its owner, executable flag, balance, data size, hash, and context slot. This confirms one live endpoint's browser RPC path. The alternate public Solana host tested in this environment returned HTTP 403 from the browser; use a second provider that supports browser CORS for a meaningful independent comparison. Local JSON-RPC fixtures separately cover matching/comparison logic, retries, errors, and export behavior.

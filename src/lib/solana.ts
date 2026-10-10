@@ -1,11 +1,11 @@
 import { address as solanaAddress, createSolanaRpc, isAddress } from "@solana/kit";
 
-export const PUBLIC_MAINNET_RPC = "https://api.mainnet-beta.solana.com";
+export const PUBLIC_MAINNET_RPC = "https://solana-rpc.publicnode.com";
 export const DEFAULT_ACCOUNT = "11111111111111111111111111111111";
 export const ACCOUNT_DATA_HASH_LIMIT = 10 * 1024 * 1024;
 
 const CLUSTERS: Record<string, string> = {
-  "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp": "Mainnet Beta",
+  "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d": "Mainnet Beta",
   EtWTRABZaYq6iMfeYKouRu166VU2xqa1: "Devnet",
   "4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY": "Testnet",
 };
@@ -39,6 +39,10 @@ export interface EndpointComparison {
   unverifiedFields: string[];
   slotDifference: number | null;
 }
+
+export type DiagnosticEndpoint =
+  | { label: string; snapshot: EndpointSnapshot }
+  | { label: string; error: string };
 
 export function networkName(genesisHash: string): string {
   return CLUSTERS[genesisHash] ?? "Unknown cluster";
@@ -75,6 +79,9 @@ function safeRpcMessage(error: unknown): string {
   if (context?.statusCode === 403 || context?.statusCode === 401) {
     return "This RPC endpoint denied the request. Check its access requirements.";
   }
+  if (typeof context?.statusCode === "number" && context.statusCode >= 500) {
+    return "This RPC endpoint is temporarily unavailable. Retry or use another endpoint.";
+  }
   const message = error instanceof Error ? error.message.toLowerCase() : "";
   if (message.includes("429") || message.includes("rate limit") || message.includes("too many requests")) {
     return "This RPC endpoint is rate limited. Wait briefly or try another endpoint.";
@@ -82,7 +89,46 @@ function safeRpcMessage(error: unknown): string {
   if (message.includes("403") || message.includes("401")) {
     return "This RPC endpoint denied the request. Check its access requirements.";
   }
+  if (/\b5\d\d\b/.test(message)) {
+    return "This RPC endpoint is temporarily unavailable. Retry or use another endpoint.";
+  }
   return "Could not read this RPC endpoint. Check its availability, browser CORS support, and network access.";
+}
+
+function isTransientRpcError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  if ("context" in error) {
+    const context = (error as { context?: { statusCode?: unknown } }).context;
+    if (typeof context?.statusCode === "number") {
+      return context.statusCode === 408 || context.statusCode === 425 || context.statusCode === 429 || context.statusCode >= 500;
+    }
+  }
+  return error instanceof TypeError && !/abort|timeout/i.test(error.message);
+}
+
+async function retryDelay(signal: AbortSignal): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", abort);
+      resolve();
+    }, 250);
+    const abort = () => {
+      clearTimeout(timer);
+      reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+    };
+    if (signal.aborted) abort();
+    else signal.addEventListener("abort", abort, { once: true });
+  });
+}
+
+async function withTransientRetry<T>(operation: () => Promise<T>, signal: AbortSignal): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    if (!isTransientRpcError(error) || signal.aborted) throw error;
+    await retryDelay(signal);
+    return operation();
+  }
 }
 
 async function hashAccountData(data: Uint8Array): Promise<string | null> {
@@ -120,12 +166,12 @@ export async function inspectEndpoint(
   const startedAt = performance.now();
   try {
     const [genesisHash, finalizedSlot, accountResponse] = await Promise.all([
-      rpc.getGenesisHash().send({ abortSignal: signal }),
-      rpc.getSlot({ commitment: "finalized" }).send({ abortSignal: signal }),
-      rpc.getAccountInfo(solanaAddress(address.trim()), {
+      withTransientRetry(() => rpc.getGenesisHash().send({ abortSignal: signal }), signal),
+      withTransientRetry(() => rpc.getSlot({ commitment: "finalized" }).send({ abortSignal: signal }), signal),
+      withTransientRetry(() => rpc.getAccountInfo(solanaAddress(address.trim()), {
         commitment: "finalized",
         encoding: "base64",
-      }).send({ abortSignal: signal }),
+      }).send({ abortSignal: signal }), signal),
     ]);
     const account = accountResponse.value;
     const dataLength = account ? Number(account.space) : null;
@@ -207,4 +253,30 @@ export function formatSol(lamports: bigint): string {
 
 export function shortHash(hash: string): string {
   return `${hash.slice(0, 8)}…${hash.slice(-6)}`;
+}
+
+export function serializeDiagnosticReport(
+  address: string,
+  endpoints: DiagnosticEndpoint[],
+  comparison: EndpointComparison | null,
+  generatedAt = new Date().toISOString(),
+): string {
+  const report = {
+    schemaVersion: 1,
+    product: "SlotSleuth",
+    generatedAt,
+    accountAddress: address,
+    commitment: "finalized",
+    observationModel: "Genesis, finalized slot, and account state are separate RPC reads. Endpoints are not compared at an atomic shared slot.",
+    endpoints: endpoints.map((endpoint) => "snapshot" in endpoint
+      ? {
+        label: endpoint.label,
+        status: "read" as const,
+        snapshot: { ...endpoint.snapshot, lamports: endpoint.snapshot.lamports?.toString() ?? null },
+      }
+      : { label: endpoint.label, status: "unavailable" as const, error: endpoint.error }),
+    comparison,
+    privacy: "RPC endpoint URLs are intentionally omitted. The browser sent requests directly to the endpoints entered by the user.",
+  };
+  return JSON.stringify(report, null, 2);
 }

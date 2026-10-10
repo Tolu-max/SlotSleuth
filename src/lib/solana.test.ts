@@ -5,12 +5,23 @@ import {
   DEFAULT_ACCOUNT,
   inspectEndpoint,
   networkName,
+  serializeDiagnosticReport,
   type EndpointSnapshot,
 } from "./solana";
 
-const MAINNET_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp";
+const MAINNET_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
+const retryCounts = new Map<string, number>();
 
 function respondJsonRpc(request: IncomingMessage, response: ServerResponse): void {
+  if (request.url === "/retry-once") {
+    const count = retryCounts.get(request.url) ?? 0;
+    retryCounts.set(request.url, count + 1);
+    if (count === 0) {
+      response.writeHead(503, "Service Unavailable");
+      response.end();
+      return;
+    }
+  }
   if (request.url === "/rate-limited") {
     response.writeHead(429, "Too Many Requests");
     response.end();
@@ -135,6 +146,13 @@ describe("SlotSleuth Solana inspection", () => {
       .rejects.toThrow("rate limited");
   });
 
+  it("retries one temporary service failure and then returns the response", async () => {
+    retryCounts.clear();
+    const result = await inspectEndpoint(`${endpoint}/retry-once`, DEFAULT_ACCOUNT);
+    expect(result.networkName).toBe("Mainnet Beta");
+    expect(retryCounts.get("/retry-once")).toBe(4);
+  });
+
   it("aborts slow RPC reads at the configured timeout", async () => {
     await expect(inspectEndpoint(`${endpoint}/slow`, DEFAULT_ACCOUNT, { timeoutMs: 10 }))
       .rejects.toThrow("timed out");
@@ -155,5 +173,20 @@ describe("SlotSleuth Solana inspection", () => {
       .toBe(false);
     expect(compareSnapshots(snapshot(), snapshot({ genesisHash: "another-cluster" })).slotDifference)
       .toBeNull();
+  });
+
+  it("exports bigint balances as strings without endpoint URLs", () => {
+    const json = serializeDiagnosticReport(DEFAULT_ACCOUNT, [
+      { label: "Endpoint A", snapshot: snapshot({ lamports: 9_223_372_036_854_775_807n }) },
+      { label: "Endpoint B", error: "This RPC endpoint denied the request." },
+    ], null, "2026-10-10T00:00:00.000Z");
+    const report = JSON.parse(json) as {
+      endpoints: { snapshot?: { lamports?: string }; status: string }[];
+      privacy: string;
+    };
+    expect(report.endpoints[0]?.snapshot?.lamports).toBe("9223372036854775807");
+    expect(report.endpoints[1]?.status).toBe("unavailable");
+    expect(json).not.toContain("https://");
+    expect(report.privacy).toContain("omitted");
   });
 });

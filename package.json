@@ -8,7 +8,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "biome lint src/App.tsx src/main.tsx src/lib/solana.ts src/lib/solana.test.ts vite.config.ts",
     "test": "vitest run",
-    "build": "tsc --noEmit && vite build"
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
     "@solana/kit": "8.4.0",

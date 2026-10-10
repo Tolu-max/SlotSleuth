@@ -6,6 +6,7 @@ import {
   inspectEndpoint,
   InspectionError,
   PUBLIC_MAINNET_RPC,
+  serializeDiagnosticReport,
   shortHash,
   formatSol,
   type EndpointComparison,
@@ -25,6 +26,23 @@ interface ComparisonRun {
 
 function formatInteger(value: number): string {
   return new Intl.NumberFormat("en-US").format(value);
+}
+
+function downloadReport(run: ComparisonRun): void {
+  const report = serializeDiagnosticReport(run.address, [
+    run.left.ok
+      ? { label: "Endpoint A", snapshot: run.left.value }
+      : { label: "Endpoint A", error: run.left.error },
+    run.right.ok
+      ? { label: "Endpoint B", snapshot: run.right.value }
+      : { label: "Endpoint B", error: run.right.error },
+  ], run.comparison);
+  const url = URL.createObjectURL(new Blob([report], { type: "application/json" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `slotsleuth-${run.address.slice(0, 8)}-report.json`;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function validateAddress(address: string): string | null {
@@ -253,7 +271,7 @@ function App() {
 
       {run && (
         <section className="results" aria-labelledby="results-title">
-          <div className="results-heading"><div><span className="eyebrow">COMPARISON REPORT</span><h2 id="results-title">Observed endpoint state</h2></div><code title={run.address}>{run.address.slice(0, 8)}…{run.address.slice(-6)}</code></div>
+          <div className="results-heading"><div><span className="eyebrow">COMPARISON REPORT</span><h2 id="results-title">Observed endpoint state</h2></div><div className="results-actions"><code title={run.address}>{run.address.slice(0, 8)}…{run.address.slice(-6)}</code><button className="report-button" type="button" onClick={() => downloadReport(run)}>Download JSON</button></div></div>
           {run.comparison && <ComparisonSummary run={run} />}
           <div className="result-grid"><EndpointCard label="Endpoint A" outcome={run.left} /><EndpointCard label="Endpoint B" outcome={run.right} /></div>
           <p className="result-disclaimer">Different finalized reads can reflect a state update between requests. Re-run both endpoints before attributing a mismatch to stale or incorrect data.</p>
