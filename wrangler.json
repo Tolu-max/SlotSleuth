@@ -1,0 +1,6 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "worlds-fair-slotsleuth",
+  "compatibility_date": "2026-10-11",
+  "pages_build_output_dir": "./dist"
+}

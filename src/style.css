@@ -129,3 +129,10 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+@media (max-width: 768px) {
+  .input-wrap input, .input-wrap--address input { font-size: 16px; }
+  .reveal-button { min-width: 44px; min-height: 44px; padding: 0 6px; }
+  .brand, .github-link, .page-footer a { display: inline-flex; min-height: 44px; align-items: center; }
+  .submit-button, .report-button { min-height: 44px; font-size: 11px; }
+}
