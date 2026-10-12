@@ -43,7 +43,7 @@ function downloadReport(run: ComparisonRun): void {
   anchor.href = url;
   anchor.download = `slotsleuth-${run.address.slice(0, 8)}-report.json`;
   anchor.click();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+  setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }
 
 function validateAddress(address: string): string | null {
