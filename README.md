@@ -9,13 +9,13 @@ From the repository root:
 ```sh
 npm ci
 npm run dev
-npm run typecheck --workspace @worlds-fair/solana-live
-npm run lint --workspace @worlds-fair/solana-live
-npm run test --workspace @worlds-fair/solana-live
-npm run build --workspace @worlds-fair/solana-live
+npm run typecheck
+npm run lint
+npm run test
+npm run build
 ```
 
-The Vite server prints a local URL (5173 by default). No environment variables are required; see [.env.example](.env.example). The static build is `projects/solana-live/dist`.
+The Vite server prints a local URL (5173 by default). No environment variables are required; see [.env.example](.env.example). The static build is `dist`.
 
 ## Behavior and boundaries
 
@@ -30,7 +30,7 @@ The Vite server prints a local URL (5173 by default). No environment variables a
 
 Use a public account address and two distinct HTTPS RPC URLs for the same cluster. Show the genesis fingerprint, context slots, account fields, hash comparison, then export the JSON diagnostic. State that state may advance between reads and that nothing is signed or broadcast.
 
-The live static app is deployed at https://worlds-fair-slotsleuth-production.up.railway.app/. To reproduce the build, run `npm run build --workspace @worlds-fair/solana-live` at the repository root; the output is `projects/solana-live/dist`. Railway serves it with the repository's production static server. The GitHub repository is private; public visitors cannot inspect the linked source without authorization.
+The live static app is deployed at https://worlds-fair-slotsleuth-production.up.railway.app/. To reproduce the build, run `npm run build` at the repository root; the output is `dist`. Railway serves it with the repository's production static server. The GitHub repository is private; public visitors cannot inspect the linked source without authorization.
 
 ## Live smoke evidence
 
