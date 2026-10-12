@@ -276,7 +276,7 @@ function App() {
 
       {run && (
         <section className="results" aria-labelledby="results-title">
-          <div className="results-heading"><div><span className="eyebrow">{run.comparison ? "TWO-ENDPOINT OBSERVATIONS" : "SINGLE-ENDPOINT INSPECTION"}</span><h2 id="results-title">Observed endpoint state</h2></div><div className="results-actions"><code title={run.address}>{run.address.slice(0, 8)}…{run.address.slice(-6)}</code><button className="report-button" type="button" onClick={() => downloadReport(run)}>Download JSON</button></div></div>
+          <div className="results-heading"><div><span className="eyebrow">{run.right === null ? "SINGLE-ENDPOINT INSPECTION" : run.comparison ? "TWO-ENDPOINT OBSERVATIONS" : "TWO-ENDPOINT RESULTS · COMPARISON UNAVAILABLE"}</span><h2 id="results-title">Observed endpoint state</h2></div><div className="results-actions"><code title={run.address}>{run.address.slice(0, 8)}…{run.address.slice(-6)}</code><button className="report-button" type="button" onClick={() => downloadReport(run)}>Download JSON</button></div></div>
           {run.comparison && <ComparisonSummary run={run} />}
           <div className="result-grid"><EndpointCard label="Endpoint A" outcome={run.left} />{run.right && <EndpointCard label="Endpoint B" outcome={run.right} />}</div>
           {run.right === null && <p className="result-disclaimer" role="status">One endpoint was read. No cross-endpoint comparison was computed. Add a second RPC URL that permits browser requests to compare observations.</p>}
