@@ -19,7 +19,7 @@ type EndpointOutcome =
 
 interface ComparisonRun {
   left: EndpointOutcome;
-  right: EndpointOutcome;
+  right: EndpointOutcome | null;
   comparison: EndpointComparison | null;
   address: string;
 }
@@ -29,14 +29,15 @@ function formatInteger(value: number): string {
 }
 
 function downloadReport(run: ComparisonRun): void {
-  const report = serializeDiagnosticReport(run.address, [
+  const endpoints = [
     run.left.ok
       ? { label: "Endpoint A", snapshot: run.left.value }
       : { label: "Endpoint A", error: run.left.error },
-    run.right.ok
-      ? { label: "Endpoint B", snapshot: run.right.value }
-      : { label: "Endpoint B", error: run.right.error },
-  ], run.comparison);
+  ];
+  if (run.right) endpoints.push(run.right.ok
+    ? { label: "Endpoint B", snapshot: run.right.value }
+    : { label: "Endpoint B", error: run.right.error });
+  const report = serializeDiagnosticReport(run.address, endpoints, run.comparison);
   const url = URL.createObjectURL(new Blob([report], { type: "application/json" }));
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -46,7 +47,7 @@ function downloadReport(run: ComparisonRun): void {
 }
 
 function validateAddress(address: string): string | null {
-  if (!address.trim()) return "Enter an account address to compare.";
+  if (!address.trim()) return "Enter an account address to inspect.";
   return isAddress(address.trim()) ? null : "Enter a valid Solana public address.";
 }
 
@@ -120,14 +121,14 @@ function ComparisonSummary({ run }: { run: ComparisonRun }) {
   const heading = !comparison.sameCluster
     ? "Different Solana clusters"
     : comparison.accountState === "match"
-      ? "Account state matches"
+        ? "Observed account fields match"
       : comparison.accountState === "different"
-        ? "Account state differs"
+        ? "Observed account fields differ"
         : "Comparison is inconclusive";
   const explanation = !comparison.sameCluster
     ? "These RPCs returned different genesis hashes. Their account responses come from different clusters."
     : comparison.accountState === "match"
-      ? "Both endpoints returned the same finalized account fields and data hash."
+      ? "Both endpoints returned the same finalized account fields and data hash in separate reads."
       : comparison.accountState === "different"
         ? `The responses differ in ${comparison.differingFields.join(", ")}. A state change may land between reads.`
         : `The responses agree on comparable fields, but ${comparison.unverifiedFields.join(", ")} could not be compared exactly.`;
@@ -135,7 +136,7 @@ function ComparisonSummary({ run }: { run: ComparisonRun }) {
   return (
     <section className={`comparison-summary comparison-summary--${variant}`} aria-live="polite">
       <div className="comparison-symbol" aria-hidden="true">{variant === "match" ? "✓" : variant === "warning" ? "!" : "≠"}</div>
-      <div className="comparison-copy"><span className="eyebrow">FINALIZED STATE CHECK</span><h2>{heading}</h2><p>{explanation}</p>
+      <div className="comparison-copy"><span className="eyebrow">TWO-ENDPOINT OBSERVATION</span><h2>{heading}</h2><p>{explanation}</p>
         <p className="comparison-context">{comparison.slotDifference === null
           ? "Slot heights belong to different clusters and cannot be compared directly."
           : `Account reads were ${formatInteger(comparison.slotDifference)} slot${comparison.slotDifference === 1 ? "" : "s"} apart. State can advance between RPC requests, so a difference is a diagnostic signal, not proof of a faulty provider.`}</p>
@@ -169,19 +170,21 @@ function App() {
       setFormError(addressError);
       return;
     }
-    if (!endpointA.trim() || !endpointB.trim()) {
-      setFormError("Enter both RPC URLs to compare account state.");
+    if (!endpointA.trim()) {
+      setFormError("Enter an RPC URL to inspect account state.");
       return;
     }
-    try {
-      const normalizedA = new URL(endpointA.trim()).href.replace(/\/$/, "");
-      const normalizedB = new URL(endpointB.trim()).href.replace(/\/$/, "");
-      if (normalizedA === normalizedB) {
-        setFormError("Use two different RPC URLs for a meaningful comparison.");
-        return;
+    if (endpointB.trim()) {
+      try {
+        const normalizedA = new URL(endpointA.trim()).href.replace(/\/$/, "");
+        const normalizedB = new URL(endpointB.trim()).href.replace(/\/$/, "");
+        if (normalizedA === normalizedB) {
+          setFormError("Use two different RPC URLs for a meaningful comparison.");
+          return;
+        }
+      } catch {
+        // Detailed URL errors are reported per endpoint below, without echoing its contents.
       }
-    } catch {
-      // Detailed URL errors are reported per endpoint below, without echoing its contents.
     }
 
     controller.current?.abort();
@@ -192,11 +195,13 @@ function App() {
 
     const [left, right] = await Promise.all([
       readEndpoint(endpointA.trim(), address.trim(), activeController.signal),
-      readEndpoint(endpointB.trim(), address.trim(), activeController.signal),
+      endpointB.trim()
+        ? readEndpoint(endpointB.trim(), address.trim(), activeController.signal)
+        : Promise.resolve(null),
     ]);
 
     if (activeRun === runNumber.current) {
-      const comparison = left.ok && right.ok ? compareSnapshots(left.value, right.value) : null;
+      const comparison = left.ok && right?.ok ? compareSnapshots(left.value, right.value) : null;
       setRun({ left, right, comparison, address: address.trim() });
       setBusy(false);
       controller.current = null;
@@ -217,14 +222,14 @@ function App() {
           <span>slot<span className="brand-light">sleuth</span></span>
         </a>
         <div className="topbar-meta"><span className="topbar-dot" />SOLANA RPC TOOLKIT <span className="topbar-divider">/</span> READ ONLY</div>
-        <a className="github-link" href="https://github.com/Tolu-max/SuperteamOpportunaity/tree/qa/worlds-fair-release-2026-10-11/projects/solana-live" target="_blank" rel="noreferrer">SOURCE <span aria-hidden="true">↗</span></a>
+        <a className="github-link" href="https://github.com/Tolu-max/SuperteamOpportunaity/tree/qa/worlds-fair-release-2026-10-11/projects/solana-live" target="_blank" rel="noreferrer">SOURCE · PRIVATE <span aria-hidden="true">↗</span></a>
       </header>
 
       <section className="hero" id="top">
         <div className="hero-copy">
           <div className="hero-kicker"><span className="kicker-line" />ACCOUNT STATE / DIAGNOSTICS 01</div>
-          <h1>Same chain.<br /><span>Same account?</span></h1>
-          <p>Compare finalized account state across two RPC endpoints. Spot cluster mismatches, stale reads, and data differences while debugging your Solana app.</p>
+          <h1>Inspect the read.<br /><span>Compare evidence.</span></h1>
+          <p>Inspect public Solana account state through an RPC endpoint. Add a second endpoint to compare observed data, network identity, and context slots while investigating differences.</p>
           <div className="hero-note"><span className="shield-icon" aria-hidden="true">◈</span><span>No wallet connection. No transactions. Just read-only RPC.</span></div>
         </div>
         <div className="hero-graphic" aria-hidden="true">
@@ -238,32 +243,32 @@ function App() {
       </section>
 
       <section className="workspace" aria-labelledby="compare-title">
-        <div className="section-heading"><div><span className="eyebrow">LIVE ACCOUNT INSPECTION</span><h2 id="compare-title">Set up a comparison</h2></div><div className="commitment-pill"><span className="commitment-dot" />FINALIZED COMMITMENT</div></div>
+        <div className="section-heading"><div><span className="eyebrow">LIVE ACCOUNT INSPECTION</span><h2 id="compare-title">Inspect an account</h2></div><div className="commitment-pill"><span className="commitment-dot" />FINALIZED COMMITMENT</div></div>
 
         <form className="compare-form" onSubmit={handleSubmit}>
           <label className="field field--address">
             <span className="field-label"><span className="field-number">01</span> Solana account address</span>
             <div className="input-wrap input-wrap--address"><span className="input-glyph" aria-hidden="true">⌗</span><input aria-label="Solana account address" autoComplete="off" spellCheck={false} value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Paste a public account address" /></div>
-            <span className="field-hint">Public key only · Base58 · No wallet required</span>
+            <span className="field-hint">Pre-filled with the public System Program address · Base58 · No wallet required</span>
           </label>
 
           <div className="endpoint-fields">
             <label className="field">
               <span className="field-label"><span className="field-number">02</span> Endpoint A <span className="endpoint-chip endpoint-chip--a">REFERENCE</span></span>
               <div className="input-wrap"><span className="endpoint-dot endpoint-dot--a" /><input aria-label="Endpoint A RPC URL" autoComplete="off" spellCheck={false} type={showA ? "text" : "password"} value={endpointA} onChange={(event) => setEndpointA(event.target.value)} placeholder="https://your-rpc-endpoint" /><button className="reveal-button" type="button" onClick={() => setShowA((value) => !value)} aria-label={showA ? "Hide Endpoint A URL" : "Show Endpoint A URL"}>{showA ? "HIDE" : "SHOW"}</button></div>
-              <span className="field-hint">Default public Solana mainnet endpoint</span>
+              <span className="field-hint">Default: PublicNode Solana mainnet endpoint</span>
             </label>
             <div className="versus" aria-hidden="true">VS</div>
             <label className="field">
               <span className="field-label"><span className="field-number">03</span> Endpoint B <span className="endpoint-chip endpoint-chip--b">COMPARE</span></span>
               <div className="input-wrap"><span className="endpoint-dot endpoint-dot--b" /><input aria-label="Endpoint B RPC URL" autoComplete="off" spellCheck={false} type={showB ? "text" : "password"} value={endpointB} onChange={(event) => setEndpointB(event.target.value)} placeholder="Paste a second RPC URL" /><button className="reveal-button" type="button" onClick={() => setShowB((value) => !value)} aria-label={showB ? "Hide Endpoint B URL" : "Show Endpoint B URL"}>{showB ? "HIDE" : "SHOW"}</button></div>
-              <span className="field-hint">Use the same cluster for a state comparison</span>
+              <span className="field-hint">Optional · same cluster recommended · browser CORS required · provider independence is not verified</span>
             </label>
           </div>
 
           {formError && <p className="form-error" role="alert">{formError}</p>}
           <div className="form-footer"><p><span className="privacy-icon" aria-hidden="true">◉</span> Requests go straight from this tab to the RPCs you entered. URLs are not saved by SlotSleuth.</p>
-            <button className="submit-button" type="submit" disabled={busy}>{busy ? <><span className="spinner" />Checking endpoints</> : <>Compare account state <span aria-hidden="true">↗</span></>}</button>
+            <button className="submit-button" type="submit" disabled={busy}>{busy ? <><span className="spinner" />Reading endpoints</> : <>{endpointB.trim() ? "Compare observations" : "Inspect account"} <span aria-hidden="true">↗</span></>}</button>
           </div>
           {busy && <div className="cancel-row"><span>Reading finalized state from both RPCs…</span><button type="button" onClick={cancel}>Cancel</button></div>}
         </form>
@@ -271,14 +276,16 @@ function App() {
 
       {run && (
         <section className="results" aria-labelledby="results-title">
-          <div className="results-heading"><div><span className="eyebrow">COMPARISON REPORT</span><h2 id="results-title">Observed endpoint state</h2></div><div className="results-actions"><code title={run.address}>{run.address.slice(0, 8)}…{run.address.slice(-6)}</code><button className="report-button" type="button" onClick={() => downloadReport(run)}>Download JSON</button></div></div>
+          <div className="results-heading"><div><span className="eyebrow">{run.comparison ? "TWO-ENDPOINT OBSERVATIONS" : "SINGLE-ENDPOINT INSPECTION"}</span><h2 id="results-title">Observed endpoint state</h2></div><div className="results-actions"><code title={run.address}>{run.address.slice(0, 8)}…{run.address.slice(-6)}</code><button className="report-button" type="button" onClick={() => downloadReport(run)}>Download JSON</button></div></div>
           {run.comparison && <ComparisonSummary run={run} />}
-          <div className="result-grid"><EndpointCard label="Endpoint A" outcome={run.left} /><EndpointCard label="Endpoint B" outcome={run.right} /></div>
-          <p className="result-disclaimer">Different finalized reads can reflect a state update between requests. Re-run both endpoints before attributing a mismatch to stale or incorrect data.</p>
+          <div className="result-grid"><EndpointCard label="Endpoint A" outcome={run.left} />{run.right && <EndpointCard label="Endpoint B" outcome={run.right} />}</div>
+          {run.right === null && <p className="result-disclaimer" role="status">One endpoint was read. No cross-endpoint comparison was computed. Add a second RPC URL that permits browser requests to compare observations.</p>}
+          {run.right !== null && !run.right.ok && run.left.ok && <p className="result-disclaimer" role="status">Endpoint A returned account data; Endpoint B did not. The successful read is preserved above, and no comparison was computed. Retry with an endpoint that permits direct browser RPC requests (CORS).</p>}
+          {run.comparison && <p className="result-disclaimer">Separate finalized reads may observe state changes between requests. A difference is an observation to investigate, not proof of stale or incorrect data.</p>}
         </section>
       )}
 
-      <footer className="page-footer"><div><span className="footer-brand">slot<span>sleuth</span></span><span className="footer-divider">·</span><span>Built for Solana developers</span></div><div><span>READ ONLY BY DESIGN</span><span className="footer-divider">·</span><a href="https://github.com/Tolu-max/SuperteamOpportunaity/tree/qa/worlds-fair-release-2026-10-11/projects/solana-live" target="_blank" rel="noreferrer">OPEN SOURCE ↗</a></div></footer>
+      <footer className="page-footer"><div><span className="footer-brand">slot<span>sleuth</span></span><span className="footer-divider">·</span><span>Built for Solana developers</span></div><div><span>READ ONLY BY DESIGN</span><span className="footer-divider">·</span><a href="https://github.com/Tolu-max/SuperteamOpportunaity/tree/qa/worlds-fair-release-2026-10-11/projects/solana-live" target="_blank" rel="noreferrer">SOURCE REPO · PRIVATE ↗</a></div></footer>
     </main>
   );
 }
