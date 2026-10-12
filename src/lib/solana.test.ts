@@ -13,6 +13,11 @@ const MAINNET_HASH = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
 const retryCounts = new Map<string, number>();
 
 function respondJsonRpc(request: IncomingMessage, response: ServerResponse): void {
+  if (request.url === "/forbidden") {
+    response.writeHead(403, "Forbidden");
+    response.end();
+    return;
+  }
   if (request.url === "/retry-once") {
     const count = retryCounts.get(request.url) ?? 0;
     retryCounts.set(request.url, count + 1);
@@ -127,6 +132,11 @@ describe("SlotSleuth Solana inspection", () => {
   it("requires HTTPS except for a local validator", async () => {
     await expect(inspectEndpoint("http://example.com", DEFAULT_ACCOUNT))
       .rejects.toThrow("HTTPS RPC endpoint");
+  });
+
+  it("explains browser-blocked RPC access on HTTP 403", async () => {
+    await expect(inspectEndpoint(`${endpoint}/forbidden`, DEFAULT_ACCOUNT))
+      .rejects.toThrow("HTTP 403: this provider blocked the browser request");
   });
 
   it("reports missing accounts as a valid empty state", async () => {

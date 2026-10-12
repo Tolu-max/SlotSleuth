@@ -136,3 +136,72 @@ a { color: inherit; }
   .brand, .github-link, .page-footer a { display: inline-flex; min-height: 44px; align-items: center; }
   .submit-button, .report-button { min-height: 44px; font-size: 11px; }
 }
+
+/* SlotSleuth is an industrial RPC workstation: cool graphite, cyan reference path, amber comparison path. */
+:root {
+  color-scheme: dark;
+  background: #0d131c;
+  --bg: #0d131c;
+  --surface: #141d29;
+  --surface-raised: #1a2634;
+  --line: #2b3949;
+  --line-soft: #202d3b;
+  --text: #e8edf2;
+  --muted: #9aa9b8;
+  --dim: #78899a;
+  --mint: #70d5d7;
+  --mint-dark: #348a91;
+  --orange: #f2ad68;
+  --red: #f07b78;
+}
+body {
+  background-color: var(--bg);
+  background-image: linear-gradient(#9ab1c308 1px, transparent 1px), linear-gradient(90deg, #9ab1c308 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+.page-shell { width: min(1180px, calc(100% - 64px)); }
+.topbar { border-color: var(--line-soft); }
+.brand-mark { border-radius: 4px; transform: none; }
+.topbar-dot, .commitment-dot, .status-dot { box-shadow: 0 0 9px #70d5d777; }
+.hero { border-color: var(--line-soft); }
+.hero h1 { font-family: var(--mono); font-size: clamp(34px, 4.3vw, 54px); letter-spacing: -2.8px; }
+.hero-graphic { opacity: .8; }
+.graphic-orbit { border-color: #35485b; }
+.graphic-orbit--inner { border-color: #28394a; }
+.graphic-core { border-color: #3f7780; background: radial-gradient(circle at 38% 35%, #1a3440, #101924 72%); box-shadow: 0 0 42px #70d5d711; }
+.graphic-node--a { background: #70d5d7; color: #0d2025; }
+.graphic-node--b { background: #f2ad68; color: #2b1b0c; }
+.graphic-wire--a { background: linear-gradient(90deg, transparent, #70d5d7); }
+.graphic-wire--b { background: linear-gradient(90deg, #f2ad68, transparent); }
+.graphic-signal { background: var(--mint); box-shadow: 0 0 12px #70d5d7; }
+.graphic-signal--b { background: var(--orange); box-shadow: 0 0 12px #f2ad68; }
+.workspace { border-color: var(--line-soft); }
+.commitment-pill { border-color: #315462; }
+.compare-form { border-color: var(--line); border-radius: 3px; background: #121b27; }
+.input-wrap { border-color: #344759; border-radius: 3px; background: #0e1722; }
+.input-wrap:focus-within { border-color: #70d5d7; box-shadow: 0 0 0 2px #70d5d718; }
+.input-wrap input { color: #e3ebf2; }
+.input-wrap input::placeholder { color: #8092a2; }
+.endpoint-chip--a { color: #7cdee0; background: #70d5d714; }
+.endpoint-chip--b { color: #ffc38c; background: #f2ad6818; }
+.form-footer { border-color: var(--line-soft); }
+.submit-button { border-color: var(--mint); background: var(--mint); color: #102227; }
+.submit-button:hover:not(:disabled) { background: #9ae4e4; }
+.results { border-color: var(--line-soft); }
+.comparison-summary { border-color: #315462; background: linear-gradient(112deg, #172b35, #121b27 68%); }
+.comparison-summary--different, .comparison-summary--warning { border-color: #704c32; background: linear-gradient(112deg, #302315, #171d25 70%); }
+.comparison-summary--inconclusive { border-color: #625637; background: linear-gradient(112deg, #292617, #171d25 70%); }
+.result-card { border-color: var(--line); border-radius: 3px; background: #121b27; }
+.result-card--error { border-color: #70433b; }
+.metric, .account-panel { border-color: #2b3c4d; background: #0e1722; }
+.hash-line { border-color: #263746; }
+.endpoint-error { border-color: #70433b; background: #251b1c; }
+.page-footer { color: #8292a2; }
+
+@media (max-width: 760px) {
+  .page-shell { width: min(100% - 34px, 570px); }
+}
+@media (max-width: 420px) {
+  .page-shell { width: calc(100% - 26px); }
+  .hero h1 { font-size: clamp(30px, 9vw, 38px); letter-spacing: -1.8px; }
+}

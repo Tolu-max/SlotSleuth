@@ -77,7 +77,9 @@ function safeRpcMessage(error: unknown): string {
     return "This RPC endpoint is rate limited. Wait briefly or try another endpoint.";
   }
   if (context?.statusCode === 403 || context?.statusCode === 401) {
-    return "This RPC endpoint denied the request. Check its access requirements.";
+    return context.statusCode === 403
+      ? "HTTP 403: this provider blocked the browser request. Use an endpoint that permits direct browser RPC access."
+      : "HTTP 401: this RPC endpoint requires authentication. Check the provider's access requirements.";
   }
   if (typeof context?.statusCode === "number" && context.statusCode >= 500) {
     return "This RPC endpoint is temporarily unavailable. Retry or use another endpoint.";
@@ -87,7 +89,9 @@ function safeRpcMessage(error: unknown): string {
     return "This RPC endpoint is rate limited. Wait briefly or try another endpoint.";
   }
   if (message.includes("403") || message.includes("401")) {
-    return "This RPC endpoint denied the request. Check its access requirements.";
+    return message.includes("403")
+      ? "HTTP 403: this provider blocked the browser request. Use an endpoint that permits direct browser RPC access."
+      : "HTTP 401: this RPC endpoint requires authentication. Check the provider's access requirements.";
   }
   if (/\b5\d\d\b/.test(message)) {
     return "This RPC endpoint is temporarily unavailable. Retry or use another endpoint.";
